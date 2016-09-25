@@ -1,0 +1,88 @@
+#!python
+env = Environment(
+        CXXFLAGS=['-std=c++11', '-g3'],
+        CPPPATH='#include'
+)
+conf = Configure(env)
+
+# Check for external header files
+if conf.CheckCHeader('lua.h') \
+        and conf.CheckCHeader('lauxlib.h') \
+        and conf.CheckCHeader('lualib.h') \
+        and conf.CheckCHeader('curl/curl.h'):
+            pass
+else:
+    print 'Could not locate lua header files'
+    Exit(1)
+
+if not conf.CheckCHeader('uwsgi.h'):
+    print 'Could not locate uwsgi.h'
+
+if not conf.CheckCXXHeader('gtest/gtest.h'):
+    print 'Could not locate gtest header files'
+
+
+# Check for external libraries
+if not conf.CheckLib('lua') or not conf.CheckLib('curl'): 
+    print 'Could not locate lua library in path'
+
+if not conf.CheckLib('gtest') or not conf.CheckLib('gtest_main'):
+    print 'Could not locate gtest library in path'
+
+env = conf.Finish()
+
+
+# Target configurations
+
+# libwfkernel
+env.SharedLibrary(target='wfkernel',
+        source=[
+            'attribute.cc',
+            'node.cc',
+            'ns.cc',
+            'context.cc',
+            'wflualib.cc',
+            'wfcontroller.cc',
+            'echo_node.cc',
+            'curl_node.cc',
+            'lua_node.cc'
+            ],
+        LIBS=[
+            'lua',
+            'curl'])
+
+# all tests
+env.Program(target='all_tests',
+        source=[
+            'attribute_test.cc',
+            'context_test.cc',
+            'wflualib_test.cc',
+            'ns_test.cc',
+            'wfcontroller_test.cc',
+            'echo_node_test.cc',
+            'lua_node_test.cc',
+            #'curl_node_test.cc',
+            ],
+        LIBS=[
+            'lua',
+            'curl',
+            'wfkernel',
+            'gtest',
+            'gtest_main'],
+        LIBPATH=['#build'])
+
+"""
+# uwsgi handler
+import subprocess
+UWSGI_CFLAGS = filter(lambda opt: 'PLUGIN' not in opt and opt != '-Wall',
+        subprocess.check_output(['uwsgi', '--cflags']).split())
+env.Append(CXXFLAGS=UWSGI_CFLAGS)
+env.Append(CXXFLAGS=['-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include/c++/v1/'])
+env.SharedLibrary(target='wfwsgihandler',
+        source=[
+            'wf_wsgi_handler.cc',
+            ],
+        LINKFLAGS='-undefined dynamic_lookup',
+        LIBS=['lua', 'curl', 'wfkernel'],
+        LIBPATH=['#build']) 
+"""
